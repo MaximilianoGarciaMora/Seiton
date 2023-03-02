@@ -1,0 +1,71 @@
+---
+title: "Facturación Seiton"
+format: 
+  html:
+    toc: true
+    embed-resources: true
+    number-sections: true
+    code-link: true
+    code-fold: show
+    df-print: paged
+---
+
+## pkgs
+
+```{r}
+#| message: false
+#| warning: false
+
+library(tidyverse)
+library(tsibble)
+library(lubridate)
+```
+
+## Datos
+
+### Importación
+
+Enlistar los archivos de Excel.
+
+```{r}
+archivos <- unzip("Facturass 2.zip") |> 
+  as_tibble() |> 
+  filter(str_detect(value, ".xlsx"),
+         str_detect(value, "MACOSX", negate = TRUE)) |> 
+  pull(value)
+```
+
+Descargar los datos.
+
+```{r}
+datos_tbl <- archivos |> 
+  map_df(~ readxl::read_excel(.x, col_types = "text"))|> 
+  janitor::clean_names()
+  
+datos_tbl
+```
+
+:::{.callout-warning}
+
+Hace falta modificar las columnas numéricas.
+
+:::
+
+tidyverse
+
+### Limpieza
+
+```{r}
+#| warning: false
+datos_tbl_tidy <- datos_tbl |> 
+  mutate(
+    across(c(n_contrato, n_cliente, bonificadas), as.numeric), #completar las columnas numéricas
+    facturado = if_else(is.na(dmy(facturado)),
+                    as.Date(as.numeric(facturado), origin = "1899-12-30"),
+                    dmy(facturado))     
+  ) |> 
+  drop_na(facturado)
+
+datos_tbl_tidy
+```
+
