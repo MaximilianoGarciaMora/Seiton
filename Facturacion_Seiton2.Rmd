@@ -1,0 +1,177 @@
+---
+  title: "Facturación Seiton"
+format: 
+  html:
+  toc: true
+embed-resources: true
+number-sections: true
+code-link: true
+code-fold: show
+df-print: paged
+---
+  
+## pkgs
+  
+```{r}
+#| message: false
+#| warning: false
+library(tidyverse)
+library(tsibble)
+library(lubridate)
+library(ggplot2)
+library(forecast)
+library(easypackages)
+```
+
+## Datos
+
+### Importación
+
+Enlistar los archivos de Excel.
+
+```{r}
+archivos <- unzip("Facturass 2.zip") |> 
+  as_tibble() |> 
+  filter(str_detect(value, ".xlsx"),
+         str_detect(value, "MACOSX", negate = TRUE)) |> 
+  pull(value)
+```
+
+Descargar los datos.
+
+```{r}
+datos_tbl <- archivos |> 
+  map_df(~ readxl::read_excel(.x, col_types = "text"))|> 
+  janitor::clean_names()
+
+datos_tbl
+```
+
+:::{.callout-warning}
+
+Hace falta modificar las columnas numéricas.
+
+:::
+  
+tidyverse
+
+### Limpieza
+
+```{r}
+#| warning: false
+datos_tbl_tidy <- datos_tbl |> 
+  mutate(
+    across(c(n_contrato, n_cliente, bonificadas, ultima_lectura,
+             lectura_actual, ctro_prod_impresiones_byn,
+             paginas_procesadas_byn, paginas_procesadas_color, factura,
+             renta_fija, excedente, subtotal, iva, total, total_paginas_procesadas), as.numeric), #completar las columnas numéricas
+    facturado = if_else(is.na(dmy(facturado)),
+                        as.Date(as.numeric(facturado), origin = "1899-12-30"),
+                        dmy(facturado))     
+  ) |> 
+  drop_na(facturado)
+datos_tbl_tidy 
+```
+
+
+```{r}
+ppT |> as_tsibble(ppT, index=Fecha)
+ppT
+```
+
+
+
+```{r}
+filtro_tibble <- function(tibble, fecha_col, paginas_col) {
+  tibble %>%
+    select(fecha_col, paginas_col) %>%
+    rename(Fecha = {{fecha_col}}, Paginas = {{paginas_col}}) %>%
+    filter(!is.na(as.Date(Fecha, format = "%d/%m/%y", 
+                          tryFormats = c("%d-%m-%y","%Y-%m-%d")))) %>%
+    group_by(Fecha) %>% 
+    summarise(paginas_procesadas = sum(Paginas))
+}
+filtro_ventas <- function(tibble, fecha_col, folio_col, monto_col) {
+  tibble %>%
+    select(fecha_col, folio_col, monto_col) %>%
+    rename(Fecha = {{fecha_col}}, Folio = {{folio_col}}, Monto = {{monto_col}}) %>%
+    filter(!is.na(as.Date(Fecha, format = "%d/%m/%y", 
+                          tryFormats = c("%d-%m-%y","%Y-%m-%d")))) %>%
+    group_by(Folio) %>%
+    group_by(Fecha) %>%
+    summarise(`Total`=sum(mean(as.numeric(Monto)))
+            )
+}
+```
+
+
+```{r}
+ppT <- filtro_tibble(datos_tbl_tidy, "facturado", "total_paginas_procesadas")
+ppT
+```
+
+
+```{r}
+ppT |> as_tsibble(ppT, index=Fecha)
+ppT
+```
+
+
+
+```{r}
+ggplot(ppT, aes(x = Fecha, y = paginas_procesadas)) +
+  geom_line() +
+  labs(title = "Páginas procesadas en todo el tiempo",
+       x = "Fecha",
+       y = "Páginas procesadas")
+```
+
+
+```{r}
+ppT %>%
+    group_by(Año=as.numeric(format(ppT$Fecha,'%Y'))) %>%
+    summarise(`Total`=sum(mean(as.numeric(paginas_procesadas)))
+            )
+```
+
+
+```{r}
+VentasT <- filtro_ventas(datos_tbl_tidy, "facturado", "folio", "total")
+VentasT
+```
+
+```{r}
+ggplot(VentasT, aes(x = Fecha, y = Total)) +
+  geom_line() +
+  labs(title = "Ventas totales facturadas al paso del tiempo",
+       x = "Fecha",
+       y = "Monto")
+```
+
+```{r}
+seasonplot(VentasT)
+```
+
+```{r}
+ej1 <- datos_tbl_tidy %>%
+  ggplot(aes(x = Facturado, y = total, color = nombre_comercial)) + 
+  geom_line() + 
+  theme(legend.position = "none")
+
+ggplotly(ej1 + scale_y_log10())
+```
+
+
+```{r}
+datos_tbl_tidy %>%
+  model(classical_decomposition(datos_tbl_tidy, type = "additive")) %>%
+  autoplot() + xlab("Year") +
+  ggtitle("Classical additive decomposition of total US retail employment")
+```
+
+
+
+
+
+
+
