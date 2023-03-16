@@ -21,6 +21,7 @@ library(lubridate)
 library(ggplot2)
 library(forecast)
 library(easypackages)
+library(timetk)
 ```
 
 ## Datos
@@ -73,10 +74,30 @@ datos_tbl_tidy <- datos_tbl |>
 datos_tbl_tidy 
 ```
 
+```{r}
+datos_tbl_tidy |> 
+  mutate(
+    cond_x_eq = condicion_de_contrato == "Equipo"
+  ) |> 
+  # filter(n_contrato %in% c(12434, 12446, 12453, 12950)) |>
+  group_by(n_contrato) |>
+  summarise_by_time(
+    .date_var = facturado,
+    .by = "year",
+    clics = sum(total_paginas_procesadas)
+  ) #|> 
+  # plot_time_series(
+  #   .date_var = facturado,
+  #   .value = clics,
+  #   .smooth = FALSE
+  # )
+```
+
+
 
 ```{r}
-ppT |> as_tsibble(ppT, index=Fecha)
-ppT
+# ppT |> as_tsibble(ppT, index=Fecha)
+# ppT
 ```
 
 
