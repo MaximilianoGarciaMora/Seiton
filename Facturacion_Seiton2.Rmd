@@ -75,7 +75,7 @@ datos_tbl_tidy
 ```
 
 ```{r}
-datos_tbl_tidy |> 
+datos_tsbl <- datos_tbl_tidy |> 
   mutate(
     cond_x_eq = condicion_de_contrato == "Equipo"
   ) |> 
@@ -83,15 +83,17 @@ datos_tbl_tidy |>
   group_by(n_contrato) |>
   summarise_by_time(
     .date_var = facturado,
-    .by = "year",
-    clics = sum(total_paginas_procesadas)
-  ) #|> 
-  # plot_time_series(
-  #   .date_var = facturado,
-  #   .value = clics,
-  #   .smooth = FALSE
-  # )
+    .by = "month",
+    clics = sum(total_paginas_procesadas),
+    .groups = "drop"
+  ) |> 
+  mutate(facturado = yearmonth(facturado)) |>
+  as_tsibble(index = facturado, key = n_contrato)
+
+datos_tsbl
 ```
+
+
 
 
 
