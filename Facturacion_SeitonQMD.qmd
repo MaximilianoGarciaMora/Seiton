@@ -1,0 +1,284 @@
+---
+title: "Facturacion_seiton"
+format: html
+editor: visual
+---
+
+# Facturación Seiton
+
+Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see <https://quarto.org>.
+
+## Paqueterías
+
+Se usarán las siguientes librerias:
+
+```{r}
+library(tidyverse)
+library(tsibble)
+library(lubridate)
+library(ggplot2)
+library(forecast)
+library(easypackages)
+library(timetk)
+library(fpp3)
+library(dplyr)
+```
+
+## Importación de Datos
+
+```{r}
+archivos <- unzip("C:/Users/Max Baylon/Desktop/ITESO/8vo Semestre/PaP Seiton/Seiton/Facturass_2.zip") |> 
+  as_tibble() |> 
+  filter(str_detect(value, ".xlsx"),
+         str_detect(value, "MACOSX", negate = TRUE)) |> 
+  pull(value)
+
+datos_tbl <- archivos |> 
+  map_df(~ readxl::read_excel(.x, col_types = "text"))|> 
+  janitor::clean_names()
+datos_tbl
+```
+
+## Limpieza de los Datos
+
+```{r}
+datos_tbl_tidy <- datos_tbl |> 
+  mutate(
+    across(c(n_contrato, n_cliente, bonificadas, ultima_lectura,lectura_actual, ctro_prod_impresiones_byn, paginas_procesadas_byn, paginas_procesadas_color, factura, renta_fija, excedente, subtotal, iva, total, total_paginas_procesadas), as.numeric), 
+    
+    facturado = if_else(is.na(dmy(facturado)),
+                        as.Date(as.numeric(facturado), origin = "1899-12-30"),
+                        dmy(facturado))     
+  ) |> 
+  drop_na(facturado)
+datos_tbl_tidy 
+```
+
+## Analisis Exploratorio de los Datos
+
+### Páginas procesadas mensuales
+
+```{r}
+datos_tbl <- datos_tbl_tidy |> 
+  mutate(
+    cond_x_eq = condicion_de_contrato == "Equipo"
+  ) |> 
+  group_by(n_contrato) |>
+  summarise_by_time(
+    .date_var = facturado,
+    .by = "month",
+    clics = sum(total_paginas_procesadas),
+    .groups = "drop"
+  ) |>
+  as_tsibble(index = facturado, key = n_contrato) |>
+  mutate(facturado = yearmonth(facturado))
+
+datos_tbl
+  # plot_time_series(
+  #   .date_var = facturado,
+  #   .value = clics,
+  #   .smooth = FALSE
+  # )
+```
+
+```{r}
+#Paginas procesadas en los 3 años de manera mensual
+
+ggplot(datos_tbl, aes(x = facturado, y = clics)) +
+  geom_line(color = "navyblue", size = 1) +
+  labs(title = "Páginas procesadas en todo el tiempo",
+       x = "Fecha",
+       y = "Páginas procesadas") +
+  scale_y_continuous(labels = scales::comma) 
+
+```
+
+```{r}
+# Convertir columna de fechas a formato "Date"
+datos_tbl$facturado <- as.Date(datos_tbl$facturado)
+
+# Filtrar filas que no corresponden a los años 2017 y 2021
+tsibble_filtrado <- datos_tbl %>% 
+  filter(format(facturado, "%Y") != "2017" & format(facturado, "%Y") != "2021")
+
+# Convertir columna de fechas a formato "yearmonth"
+tsibble_filtrado <- tsibble_filtrado %>% 
+  mutate(facturado = yearmonth(facturado))
+
+# Agrupar por fecha y sumar los clics
+tsibble_suma <- tsibble_filtrado %>% 
+  group_by(facturado) %>% 
+  summarize(total_clics = sum(clics))
+
+# Crear tsibble con la columna de fechas como índice
+tsibble_final <- tsibble_suma %>% 
+  as_tsibble(index = facturado)
+tsibble_final
+```
+
+#### Gráfica de páginas procesadas mensualmente
+
+```{r}
+# Graficar tsibble_final
+ggplot(tsibble_final, aes(x = facturado, y = total_clics)) +
+  geom_line(color = "navyblue", size = 1) +
+  labs(title = "Clics por mes", x = "Fecha", y = "Clics totales")
+```
+
+#### Análisis de Estacionalidad
+
+```{r}
+pag_ts <- tsibble_final %>%
+  fill_gaps() 
+
+gg_season(pag_ts, y= total_clics) +
+  labs(x =  "Fecha", y = "Páginas",
+       title = "Estacionalidad Páginas Procesadas")
+```
+
+```{r}
+tsibble_final |> 
+  model(classical_decomposition(total_clics)) |>
+  components() |>
+
+autoplot()
+```
+
+### Ventas totales mensuales
+
+```{r}
+datos_tbl2 <- datos_tbl_tidy |> 
+  mutate(
+    cond_x_eq = condicion_de_contrato == "Equipo"
+  ) |> 
+  group_by(folio) |>
+  summarise_by_time(
+    .date_var = facturado,
+    .by = "month",
+    ventas = sum(mean(as.numeric(total))),
+    .groups = "drop"
+  ) |>
+  as_tsibble(index = facturado, key = folio) |>
+  mutate(facturado = yearmonth(facturado))
+
+datos_tbl2
+#plot_time_series(
+#     .date_var = facturado,
+#     .value = ventas,
+#     .smooth = FALSE
+#   )
+```
+
+#### Gráfica de Ventas totales mensuales
+
+```{r}
+#Ventas en los 3 años mensual
+
+ggplot(datos_tbl2, aes(x = facturado, y = ventas)) +
+  geom_line(color = "navyblue", size = 1) +
+  labs(title = "Ventas en los últimos 3 años",
+       x = "Fecha",
+       y = "ventas") +
+  scale_y_continuous(labels = scales::comma) 
+
+```
+
+Limpieza de datos para eliminar 2017 y 2021 ya que no estan completos los años
+
+```{r}
+# Convertir columna de fechas a formato "Date"
+datos_tbl2$facturado <- as.Date(datos_tbl2$facturado)
+
+# Filtrar filas que no corresponden a los años 2017 y 2021
+tsibble_filtrado2 <- datos_tbl2 %>% 
+  filter(format(facturado, "%Y") != "2017" & format(facturado, "%Y") != "2021")
+
+# Convertir columna de fechas a formato "yearmonth"
+tsibble_filtrado2 <- tsibble_filtrado2 %>% 
+  mutate(facturado = yearmonth(facturado))
+
+# Agrupar por fecha y sumar los clics
+tsibble_suma2 <- tsibble_filtrado2 %>% 
+  group_by(facturado) %>% 
+  summarize(Ventas = sum(ventas))
+
+# Crear tsibble con la columna de fechas como índice
+tsibble_final2 <- tsibble_suma2 %>% 
+  as_tsibble(index = facturado)
+tsibble_final2
+```
+
+```{r}
+# Graficar tsibble_final
+ggplot(tsibble_final2, aes(x = facturado, y = Ventas)) +
+  geom_line(color = "navyblue", size = 1) +
+  labs(title = "Ventas por mes", x = "Fecha", y = "Ventas totales")
+
+```
+
+#### Ánalisis de Estacionalidad
+
+```{r}
+ventas_ts <- tsibble_final2 %>%
+  fill_gaps() 
+
+gg_season(ventas_ts, y= Ventas) +
+  labs(x = "Fecha",y = "Ventas",
+       title = "Estacionalidad de las ventas por año")
+```
+
+```{r}
+tsibble_final2 |> 
+  model(classical_decomposition(Ventas)) |>
+  components() |>
+
+autoplot()
+```
+
+### Ventas mensuales por cada Cliente
+
+```{r}
+datos_tbl3 <- datos_tbl_tidy |> 
+  mutate(
+    cond_x_eq = condicion_de_contrato == "Equipo"
+  ) |> 
+  group_by(nombre_legal) |>
+  summarise_by_time(
+    .date_var = facturado,
+    .by = "month",
+    ventas = sum(mean(as.numeric(total))),
+    .groups = "drop"
+  ) |>
+  as_tsibble(index = facturado, key = nombre_legal) |>
+  mutate(facturado = yearmonth(facturado))
+
+datos_tbl3
+#plot_time_series(
+#     .date_var = facturado,
+#     .value = ventas,
+#     .smooth = FALSE
+#   )
+```
+
+```{r}
+# Convertir columna de fechas a formato "Date"
+datos_tbl3$facturado <- as.Date(datos_tbl3$facturado)
+
+# Filtrar filas que no corresponden a los años 2017 y 2021
+tsibble_filtrado3 <- datos_tbl3 %>% 
+  filter(format(facturado, "%Y") != "2017" & format(facturado, "%Y") != "2021")
+
+# Convertir columna de fechas a formato "yearmonth"
+tsibble_filtrado3 <- tsibble_filtrado3 %>% 
+  mutate(facturado = yearmonth(facturado))
+
+# Agrupar por fecha y sumar los clics
+tsibble_suma3 <- tsibble_filtrado3 %>% 
+  group_by(facturado) %>% 
+  summarize(Ventas = sum(ventas))
+
+# Crear tsibble con la columna de fechas como índice
+tsibble_final3 <- tsibble_suma2 %>% 
+  as_tsibble(index = facturado)
+tsibble_final3
+```
