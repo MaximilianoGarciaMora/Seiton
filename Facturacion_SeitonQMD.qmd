@@ -27,7 +27,7 @@ library(dplyr)
 ## Importación de Datos
 
 ```{r}
-archivos <- unzip("C:/Users/Max Baylon/Desktop/ITESO/8vo Semestre/PaP Seiton/Seiton/Facturass_2.zip") |> 
+archivos <- unzip("/Users/max/Documents/GitHub/PAP/Seiton/Facturass 2.zip") |> 
   as_tibble() |> 
   filter(str_detect(value, ".xlsx"),
          str_detect(value, "MACOSX", negate = TRUE)) |> 
@@ -281,4 +281,56 @@ tsibble_suma3 <- tsibble_filtrado3 %>%
 tsibble_final3 <- tsibble_suma2 %>% 
   as_tsibble(index = facturado)
 tsibble_final3
+```
+
+### Excedente
+
+```{r}
+datos_tbl <- datos_tbl_tidy |> 
+  group_by(n_contrato) |>
+  summarise_by_time(
+    .date_var = facturado,
+    .by = "month",
+    paginas_excedente = sum(excedente),
+    .groups = "drop"
+  ) |>
+  as_tsibble(index = facturado, key = n_contrato) |>
+  mutate(facturado = yearmonth(facturado))
+
+datos_tbl
+
+```
+
+```{r}
+#Paginas procesadas en los 3 años de manera mensual
+
+ggplot(datos_tbl, aes(x = facturado, y = paginas_excedente)) +
+  geom_line(color = "navyblue", size = 1) +
+  labs(title = "Páginas excedentes en todo el tiempo",
+       x = "Fecha",
+       y = "Páginas excedentes") +
+  scale_y_continuous(labels = scales::comma) 
+```
+
+```{r}
+# Convertir columna de fechas a formato "Date"
+datos_tbl$facturado <- as.Date(datos_tbl$facturado)
+
+# Filtrar filas que no corresponden a los años 2017 y 2021
+tsibble_filtrado <- datos_tbl %>% 
+  filter(format(facturado, "%Y") != "2017" & format(facturado, "%Y") != "2021")
+
+# Convertir columna de fechas a formato "yearmonth"
+tsibble_filtrado <- tsibble_filtrado %>% 
+  mutate(facturado = yearmonth(facturado))
+
+# Agrupar por fecha y sumar los excedentes
+tsibble_suma <- tsibble_filtrado %>% 
+  group_by(facturado) %>% 
+  summarize(total_excedente = sum(excedente))
+
+# Crear tsibble con la columna de fechas como índice
+tsibble_final <- tsibble_suma %>% 
+  as_tsibble(index = facturado)
+tsibble_final
 ```
