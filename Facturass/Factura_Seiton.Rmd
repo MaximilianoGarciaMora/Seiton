@@ -1,0 +1,454 @@
+---
+title: "Facturas Seiton"
+output: html_notebook
+---
+
+```{r paqueterias, include=FALSE}
+library(tidyverse)
+library(readxl)
+library(lubridate)
+library(tsibble)
+library(feasts)
+library(fable)
+# library(tibble)
+# library(ggplot2)
+# library(dplyr)
+```
+
+```{r funciones}
+filtro_tibble <- function(tibble, fecha_col, paginas_col) {
+  tibble %>%
+    select(fecha_col, paginas_col) %>%
+    rename(Fecha = {{fecha_col}}, Paginas = {{paginas_col}}) %>%
+    filter(!is.na(as.Date(Fecha, format = "%d/%m/%y", 
+                          tryFormats = c("%d-%m-%y","%Y-%m-%d")))) %>%
+    group_by(Fecha) %>% 
+    summarise(paginas_procesadas = sum(Paginas))
+}
+
+filtro_ventas <- function(tibble, fecha_col, folio_col, monto_col) {
+  tibble %>%
+    select(fecha_col, folio_col, monto_col) %>%
+    rename(Fecha = {{fecha_col}}, Folio = {{folio_col}}, Monto = {{monto_col}}) %>%
+    filter(!is.na(as.Date(Fecha, format = "%d/%m/%y", 
+                          tryFormats = c("%d-%m-%y","%Y-%m-%d")))) %>%
+    group_by(Folio) %>%
+    group_by(Fecha) %>%
+    summarise(`Total`=sum(mean(as.numeric(Monto)))
+            )
+}
+```
+
+Convertir tibbles a tsibble
+
+```{r descarga de datos}
+#Falta optimizar
+ 
+#archivos_2018<- c("ReporteEquipoCosto_Abril_2018.xlsx", "ReporteEquipoCosto_Mayo_2018.xlsx", "ReporteEquipoCosto_Junio_2018.xlsx")
+
+#archivos_2019<- c("ReporteEquipoCosto_Abril_2019.xlsx", "ReporteEquipoCosto_Mayo_2018.xlsx", "ReporteEquipoCosto_Junio_2018.xlsx")
+
+#archivos_2020<- c("ReporteEquipoCosto_Abril_2020.xlsx", "ReporteEquipoCosto_Mayo_2018.xlsx", "ReporteEquipoCosto_Junio_2018.xlsx")
+
+Enero_2018 <- read_excel("ReporteEquipoCosto_Enero_2018.xlsx" , col_names = TRUE, col_types = NULL)
+drop <- names(Enero_2018) %in% c("CTRO PROD - IMPRESIONES BYN","Bonificadas","Renta fija")
+Enero_2018 <- Enero_2018[,!drop]
+
+Febrero_2018 <- read_excel("ReporteEquipoCosto_Febrero_2018.xlsx" , col_names = TRUE, col_types = NULL)
+drop <- names(Febrero_2018) %in% c("CTRO PROD - IMPRESIONES BYN","Bonificadas","Renta fija")
+Febrero_2018 <- Febrero_2018[,!drop]
+
+Marzo_2018 <- read_excel("ReporteEquipoCosto_Marzo_2018.xlsx" , col_names = TRUE, col_types = NULL)
+drop <- names(Marzo_2018) %in% c("CTRO PROD - IMPRESIONES BYN","Bonificadas","Renta fija")
+Marzo_2018 <- Marzo_2018[,!drop]
+
+Abril_2018 <- read_excel("ReporteEquipoCosto_Abril_2018.xlsx" , col_names = TRUE, col_types = NULL)
+drop <- names(Abril_2018) %in% c("CTRO PROD - IMPRESIONES BYN","Bonificadas","Renta fija")
+Abril_2018 <- Abril_2018[,!drop]
+
+Mayo_2018 <- read_excel("ReporteEquipoCosto_Mayo_2018.xlsx" , col_names = TRUE, col_types = NULL)
+drop <- names(Mayo_2018) %in% c("CTRO PROD - IMPRESIONES BYN","Bonificadas","Renta fija")
+Mayo_2018 <- Mayo_2018[,!drop]
+
+Junio_2018 <- read_excel("ReporteEquipoCosto_Junio_2018.xlsx" , col_names = TRUE, col_types = NULL)
+drop <- names(Junio_2018) %in% c("CTRO PROD - IMPRESIONES BYN","Bonificadas","Renta fija")
+Junio_2018 <- Junio_2018[,!drop]
+
+Julio_2018 <- read_excel("ReporteEquipoCosto_Julio_2018.xlsx" , col_names = TRUE, col_types = NULL)
+drop <- names(Julio_2018) %in% c("CTRO PROD - IMPRESIONES BYN","Bonificadas","Renta fija")
+Julio_2018 <- Julio_2018[,!drop]
+
+Agosto_2018 <- read_excel("ReporteEquipoCosto_Agosto_2018.xlsx" , col_names = TRUE, col_types = NULL)
+drop <- names(Agosto_2018) %in% c("CTRO PROD - IMPRESIONES BYN","Bonificadas","Renta fija")
+Agosto_2018 <- Agosto_2018[,!drop]
+
+Septiembre_2018 <- read_excel("ReporteEquipoCosto_Septiembre_2018.xlsx" , col_names = TRUE, col_types = NULL)
+drop <- names(Septiembre_2018) %in% c("CTRO PROD - IMPRESIONES BYN","Bonificadas","Renta fija")
+Septiembre_2018 <- Septiembre_2018[,!drop]
+
+Octubre_2018 <- read_excel("ReporteEquipoCosto_Octubre_2018.xlsx" , col_names = TRUE, col_types = NULL)
+drop <- names(Octubre_2018) %in% c("CTRO PROD - IMPRESIONES BYN","Bonificadas","Renta fija")
+Octubre_2018 <- Octubre_2018[,!drop]
+
+Noviembre_2018 <- read_excel("ReporteEquipoCosto_Noviembre_2018.xlsx" , col_names = TRUE, col_types = NULL)
+drop <- names(Noviembre_2018) %in% c("CTRO PROD - IMPRESIONES BYN","Bonificadas","Renta fija")
+Noviembre_2018 <- Noviembre_2018[,!drop]
+
+Diciembre_2018 <- read_excel("ReporteEquipoCosto_Diciembre_2018.xlsx" , col_names = TRUE, col_types = NULL)
+drop <- names(Diciembre_2018) %in% c("CTRO PROD - IMPRESIONES BYN","Bonificadas","Renta fija")
+Diciembre_2018 <- Diciembre_2018[,!drop]
+
+
+
+
+Enero_2019 <- read_excel("ReporteEquipoCosto_Enero_2019.xlsx" , col_names = TRUE, col_types = NULL)
+drop <- names(Enero_2019) %in% c("CTRO PROD - IMPRESIONES BYN","Bonificadas","Renta fija")
+Enero_2019 <- Enero_2019[,!drop]
+
+Febrero_2019 <- read_excel("ReporteEquipoCosto_Febrero_2019.xlsx" , col_names = TRUE, col_types = NULL)
+drop <- names(Febrero_2019) %in% c("CTRO PROD - IMPRESIONES BYN","Bonificadas","Renta fija")
+Febrero_2019 <- Febrero_2019[,!drop]
+
+Marzo_2019 <- read_excel("ReporteEquipoCosto_Marzo_2019.xlsx" , col_names = TRUE, col_types = NULL)
+drop <- names(Marzo_2019) %in% c("CTRO PROD - IMPRESIONES BYN","Bonificadas","Renta fija")
+Marzo_2019 <- Marzo_2019[,!drop]
+
+Abril_2019 <- read_excel("ReporteEquipoCosto_Abril_2019.xlsx" , col_names = TRUE, col_types = NULL)
+drop <- names(Abril_2019) %in% c("CTRO PROD - IMPRESIONES BYN","Bonificadas","Renta fija")
+Abril_2019 <- Abril_2019[,!drop]
+
+Mayo_2019 <- read_excel("ReporteEquipoCosto_Mayo_2019.xlsx" , col_names = TRUE, col_types = NULL)
+drop <- names(Mayo_2019) %in% c("CTRO PROD - IMPRESIONES BYN","Bonificadas","Renta fija")
+Mayo_2019 <- Mayo_2019[,!drop]
+
+Junio_2019 <- read_excel("ReporteEquipoCosto_Junio_2019.xlsx" , col_names = TRUE, col_types = NULL)
+drop <- names(Junio_2019) %in% c("CTRO PROD - IMPRESIONES BYN","Bonificadas","Renta fija")
+Junio_2019 <- Junio_2019[,!drop]
+
+Julio_2019 <- read_excel("ReporteEquipoCosto_Julio_2019.xlsx" , col_names = TRUE, col_types = NULL)
+drop <- names(Julio_2019) %in% c("CTRO PROD - IMPRESIONES BYN","Bonificadas","Renta fija")
+Julio_2019 <- Julio_2019[,!drop]
+
+Agosto_2019 <- read_excel("ReporteEquipoCosto_Agosto_2019.xlsx" , col_names = TRUE, col_types = NULL)
+drop <- names(Agosto_2019) %in% c("CTRO PROD - IMPRESIONES BYN","Bonificadas","Renta fija")
+Agosto_2019 <- Agosto_2019[,!drop]
+
+Septiembre_2019 <- read_excel("ReporteEquipoCosto_Septiembre_2019.xlsx" , col_names = TRUE, col_types = NULL)
+drop <- names(Septiembre_2019) %in% c("CTRO PROD - IMPRESIONES BYN","Bonificadas","Renta fija")
+Septiembre_2019 <- Septiembre_2019[,!drop]
+
+Octubre_2019 <- read_excel("ReporteEquipoCosto_Octubre_2019.xlsx" , col_names = TRUE, col_types = NULL)
+drop <- names(Octubre_2019) %in% c("CTRO PROD - IMPRESIONES BYN","Bonificadas","Renta fija")
+Octubre_2019 <- Octubre_2019[,!drop]
+
+Noviembre_2019 <- read_excel("ReporteEquipoCosto_Noviembre_2019.xlsx" , col_names = TRUE, col_types = NULL)
+drop <- names(Noviembre_2019) %in% c("CTRO PROD - IMPRESIONES BYN","Bonificadas","Renta fija")
+Noviembre_2019 <- Noviembre_2019[,!drop]
+
+Diciembre_2019 <- read_excel("ReporteEquipoCosto_Diciembre_2019.xlsx" , col_names = TRUE, col_types = NULL)
+drop <- names(Diciembre_2019) %in% c("CTRO PROD - IMPRESIONES BYN","Bonificadas","Renta fija")
+Diciembre_2019 <- Diciembre_2019[,!drop]
+
+
+
+
+Enero_2020 <- read_excel("ReporteEquipoCosto_Enero_2020.xlsx" , col_names = TRUE, col_types = NULL)
+drop <- names(Enero_2020) %in% c("CTRO PROD - IMPRESIONES BYN","Bonificadas","Renta fija")
+Enero_2020 <- Enero_2020[,!drop]
+
+Febrero_2020 <- read_excel("ReporteEquipoCosto_Febrero_2020.xlsx" , col_names = TRUE, col_types = NULL)
+drop <- names(Febrero_2020) %in% c("CTRO PROD - IMPRESIONES BYN","Bonificadas","Renta fija")
+Febrero_2020 <- Febrero_2020[,!drop]
+
+Marzo_2020 <- read_excel("ReporteEquipoCosto_Marzo_2020.xlsx" , col_names = TRUE, col_types = NULL)
+drop <- names(Marzo_2020) %in% c("CTRO PROD - IMPRESIONES BYN","Bonificadas","Renta fija")
+Marzo_2020 <- Marzo_2020[,!drop]
+
+Abril_2020 <- read_excel("ReporteEquipoCosto_Abril_2020.xlsx" , col_names = TRUE, col_types = NULL)
+drop <- names(Abril_2020) %in% c("CTRO PROD - IMPRESIONES BYN","Bonificadas","Renta fija")
+Abril_2020 <- Abril_2020[,!drop]
+
+Mayo_2020 <- read_excel("ReporteEquipoCosto_Mayo_2020.xlsx" , col_names = TRUE, col_types = NULL)
+drop <- names(Mayo_2020) %in% c("CTRO PROD - IMPRESIONES BYN","Bonificadas","Renta fija")
+Mayo_2020 <- Mayo_2020[,!drop]
+
+Junio_2020 <- read_excel("ReporteEquipoCosto_Junio_2020.xlsx" , col_names = TRUE, col_types = NULL)
+drop <- names(Junio_2020) %in% c("CTRO PROD - IMPRESIONES BYN","MPS PROCESADO ESCANEO",
+                                 "Bonificadas","Renta fija")
+Junio_2020 <- Junio_2020[,!drop]
+
+Julio_2020 <- read_excel("ReporteEquipoCosto_Julio_2020.xlsx" , col_names = TRUE, col_types = NULL)
+drop <- names(Julio_2020) %in% c("CTRO PROD - IMPRESIONES BYN","MPS PROCESADO ESCANEO",
+                                 "Bonificadas","Renta fija")
+Julio_2020 <- Julio_2020[,!drop]
+
+Agosto_2020 <- read_excel("ReporteEquipoCosto_Agosto_2020.xlsx" , col_names = TRUE, col_types = NULL)
+drop <- names(Agosto_2020) %in% c("CTRO PROD - IMPRESIONES BYN","MPS PROCESADO ESCANEO",
+                                  "Bonificadas","Renta fija")
+Agosto_2020 <- Agosto_2020[,!drop]
+```
+
+```{r tablas anuales}
+Ano_2018 <- rbind(Enero_2018,Febrero_2018,Marzo_2018,Abril_2018,Mayo_2018,Junio_2018,
+                Julio_2018,Agosto_2018,Septiembre_2018,Octubre_2018,Noviembre_2018,
+                Diciembre_2018)
+
+Ano_2019 <- rbind(Enero_2019,Febrero_2019,Marzo_2019,Abril_2019,Mayo_2019,Junio_2019,
+                Julio_2019,Agosto_2019,Septiembre_2019,Octubre_2019,Noviembre_2019,
+                Diciembre_2019)
+
+Ano_2020 <- rbind(Enero_2020,Febrero_2020,Marzo_2020,Abril_2020,Mayo_2020,Junio_2020,
+                Julio_2020,Agosto_2020)
+```
+
+```{r Tabla Total}
+TablaT <- rbind(Ano_2018,Ano_2019,Ano_2020)
+TablaT
+
+TablaT %>% 
+  select(Facturado)
+
+TablaT %>% 
+  mutate(
+    fecha = if_else(is.na(dmy(Facturado)),
+                    as.Date(as.numeric(Facturado), origin = "1899-12-30"),
+                    dmy(Facturado)) 
+  ) %>% 
+  janitor::make_clean_names()
+```
+
+```{r Paginas procesadas por año}
+# Filtrar con la función anterior
+pp_2018 <- filtro_tibble(Ano_2018, "Facturado", "Total páginas procesadas")
+pp_2018$Fecha <- as.POSIXct(pp_2018$Fecha, format = "%d/%m/%Y") #Cambio de formato de fecha, para unificar
+
+pp_2019 <- filtro_tibble(Ano_2019, "Facturado", "Total páginas procesadas")
+pp_2019$Fecha <- as.POSIXct(pp_2019$Fecha, format = "%d/%m/%Y") #Cambio de formato de fecha, para unificar
+
+pp_2020 <- filtro_tibble(Ano_2020, "Facturado", "Total páginas procesadas")
+pp_2020$Fecha <- as.POSIXct(pp_2020$Fecha, format = "%d/%m/%Y") #Cambio de formato de fecha, para unificar
+
+ppT <- filtro_tibble(TablaT, "Facturado", "Total páginas procesadas")
+ppT$Fecha <- as.POSIXct(ppT$Fecha, format = "%d/%m/%Y") #Cambio de formato de fecha, para unificar
+```
+
+```{r graficas paginas procesadas}
+ggplot(pp_2018, aes(x = Fecha, y = paginas_procesadas)) +
+  geom_line() +
+  labs(title = "Páginas procesadas en 2018",
+       x = "Fecha",
+       y = "Páginas procesadas")
+
+ggplot(pp_2019, aes(x = Fecha, y = paginas_procesadas)) +
+  geom_line() +
+  labs(title = "Páginas procesadas en 2019",
+       x = "Fecha",
+       y = "Páginas procesadas")
+
+ggplot(pp_2020, aes(x = Fecha, y = paginas_procesadas)) +
+  geom_line() +
+  labs(title = "Páginas procesadas en 2020",
+       x = "Fecha",
+       y = "Páginas procesadas")
+
+ggplot(ppT, aes(x = Fecha, y = paginas_procesadas)) +
+  geom_line() +
+  labs(title = "Páginas procesadas en todo el tiempo",
+       x = "Fecha",
+       y = "Páginas procesadas")
+
+```
+
+```{r Ventas facturadas por año }
+Ventas_2018 <- filtro_ventas(Ano_2018, "Facturado", "Folio", "Total")
+Ventas_2018$Fecha <- as.POSIXct(Ventas_2018$Fecha, format = "%d/%m/%Y") #Cambio de formato de fecha, para unificar
+
+Ventas_2019 <- filtro_ventas(Ano_2019, "Facturado", "Folio", "Total")
+Ventas_2019$Fecha <- as.POSIXct(Ventas_2019$Fecha, format = "%d/%m/%Y") #Cambio de formato de fecha, para unificar
+
+Ventas_2020 <- filtro_ventas(Ano_2020, "Facturado", "Folio", "Total")
+Ventas_2020$Fecha <- as.POSIXct(Ventas_2020$Fecha, format = "%d/%m/%Y") #Cambio de formato de fecha, para unificar
+
+VentasT <- filtro_ventas(TablaT, "Facturado", "Folio", "Total")
+VentasT$Fecha <- as.POSIXct(VentasT$Fecha, format = "%d/%m/%Y") #Cambio de formato de fecha, para unificar
+```
+
+```{r graficas de ventas facturadas}
+ggplot(Ventas_2018, aes(x = Fecha, y = Total)) +
+  geom_line() +
+  labs(title = "Ventas facturadas en 2018",
+       x = "Fecha",
+       y = "Monto")
+
+ggplot(Ventas_2019, aes(x = Fecha, y = Total)) +
+  geom_line() +
+  labs(title = "Ventas facturadas en 2019",
+       x = "Fecha",
+       y = "Monto")
+
+ggplot(Ventas_2020, aes(x = Fecha, y = Total)) +
+  geom_line() +
+  labs(title = "Ventas facturadas en 2020",
+       x = "Fecha",
+       y = "Monto")
+
+ggplot(VentasT, aes(x = Fecha, y = Total)) +
+  geom_line() +
+  labs(title = "Ventas totales facturadas al paso del tiempo",
+       x = "Fecha",
+       y = "Monto")
+```
+
+
+
+
+
+
+
+
+
+
+
+
+```{r Explicación}
+#Abril_2018_2 <- select(Abril_2018, "Facturado", "Total páginas procesadas") %>%
+#  rename(Fecha = Facturado, Paginas = "Total páginas procesadas")
+
+#AB_2018 <- Abril_2018_2 %>%
+#  filter(!is.na(as.Date(Fecha, format = "%d/%m/%Y", tryFormats = c("%d-%m-%Y", "%Y-%m-%d"))))  %>%  group_by(Fecha) %>% #summarise(paginas_procesadas = sum(Paginas))
+  
+#AB_2018
+
+#Mayo_2018_2 <- select(Mayo_2018, "Facturado", "Total páginas procesadas") %>%
+ # rename(Fecha = Facturado, Paginas = "Total páginas procesadas")
+
+#MAY_2018 <- Mayo_2018_2 %>%
+#  filter(!is.na(as.Date(Fecha, format = "%d/%m/%Y", tryFormats = c("%d-%m-%Y", "%Y-%m-%d"))))  %>%  group_by(Fecha) %>% #summarise(paginas_procesadas = sum(Paginas))
+  
+#MAY_2018
+
+
+#Junio_2018_2 <- select(Junio_2018, "Facturado", "Total páginas procesadas") %>%
+#  rename(Fecha = Facturado, Paginas = "Total páginas procesadas")
+
+#JUN_2018 <- Junio_2018_2 %>%
+#  filter(!is.na(as.Date(Fecha, format = "%d/%m/%Y", tryFormats = c("%d-%m-%Y", "%Y-%m-%d"))))  %>%  group_by(Fecha) %>% #(paginas_procesadas = sum(Paginas))
+  
+#JUN_2018
+
+```
+
+```{r}
+#Código anterior, versión optimizada
+#Función para filtrar fechas y sumar sus respectivas paginas
+filtro_tibble <- function(tibble, fecha_col, paginas_col) {
+  tibble %>% 
+    select(fecha_col, paginas_col) %>% 
+    rename(Fecha = {{fecha_col}}, Paginas = {{paginas_col}}) %>%
+    filter(!is.na(as.Date(Fecha, format = "%d/%m/%Y", tryFormats = c("%d-%m-%Y", "%Y-%m-%d")))) %>% 
+    group_by(Fecha) %>% 
+    summarise(paginas_procesadas = sum(Paginas))
+}
+
+# Filtrar con la función anterior
+AB_2018 <- filtro_tibble(Abril_2018, "Facturado", "Total páginas procesadas")
+AB_2018$Fecha <- as.POSIXct(AB_2018$Fecha, format = "%d/%m/%Y") #Cambio de formato de fecha, para unificar
+
+MAY_2018 <- filtro_tibble(Mayo_2018, "Facturado", "Total páginas procesadas")
+
+JUN_2018 <- filtro_tibble(Junio_2018, "Facturado", "Total páginas procesadas")
+
+
+
+AB_2019 <- filtro_tibble(Abril_2019, "Facturado", "Total páginas procesadas")
+
+MAY_2019 <- filtro_tibble(Mayo_2019, "Facturado", "Total páginas procesadas")
+
+JUN_2019 <- filtro_tibble(Junio_2019, "Facturado", "Total páginas procesadas")
+
+
+
+
+AB_2020 <- filtro_tibble(Abril_2020, "Facturado", "Total páginas procesadas")
+
+MAY_2020 <- filtro_tibble(Mayo_2020, "Facturado", "Total páginas procesadas")
+
+JUN_2020 <- filtro_tibble(Junio_2020, "Facturado", "Total páginas procesadas")
+
+AB_2018
+MAY_2018
+JUN_2018
+
+AB_2019
+MAY_2019
+JUN_2019
+
+AB_2020
+MAY_2020
+JUN_2020
+
+```
+
+```{r}
+# Graficas de mes individual (SOLO UNA PRUEBA)
+
+ggplot(AB_2018, aes(x = Fecha, y = paginas_procesadas)) +
+  geom_line() +
+  labs(title = "Páginas procesadas en abril de 2018",
+       x = "Fecha",
+       y = "Páginas procesadas")
+
+ggplot(MAY_2018, aes(x = Fecha, y = paginas_procesadas)) +
+  geom_line() +
+  labs(title = "Páginas procesadas en mayo de 2018",
+       x = "Fecha",
+       y = "Páginas procesadas")
+
+ggplot(JUN_2018, aes(x = Fecha, y = paginas_procesadas)) +
+  geom_line() +
+  labs(title = "Páginas procesadas en junio de 2018",
+       x = "Fecha",
+       y = "Páginas procesadas")
+```
+
+```{r}
+#Recopilado de meses 2018
+#Suma de columnas (ab+may+jun) en 1 solo tibble
+tibble_anual18 <- bind_rows(AB_2018, MAY_2018, JUN_2018)
+tibble_anual18
+
+tibble_anual19 <- bind_rows(AB_2019, MAY_2019, JUN_2019)
+tibble_anual19
+
+tibble_anual20 <- bind_rows(AB_2020, MAY_2020, JUN_2020)
+tibble_anual20
+
+
+```
+
+```{r}
+#GRAFICAS ANUALES
+
+
+#RESULTADOS FINALES 2018
+ggplot(tibble_anual18, aes(x = Fecha, y = paginas_procesadas)) +
+  geom_line() +
+  labs(title = "Páginas procesadas en 2018",
+       x = "Fecha de Facturación",
+       y = "Cantidad de Páginas")
+
+#RESULTADOS FINALES 2018
+ggplot(tibble_anual19, aes(x = Fecha, y = paginas_procesadas)) +
+  geom_line() +
+  labs(title = "Páginas procesadas en 2019",
+       x = "Fecha de Facturación",
+       y = "Cantidad de Páginas")
+
+#RESULTADOS FINALES 2018
+ggplot(tibble_anual20, aes(x = Fecha, y = paginas_procesadas)) +
+  geom_line() +
+  labs(title = "Páginas procesadas en 2020",
+       x = "Fecha de Facturación",
+       y = "Cantidad de Páginas")
+```
+
