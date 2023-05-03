@@ -27,7 +27,7 @@ library(dplyr)
 ## Importación de Datos
 
 ```{r}
-archivos <- unzip("/Users/max/Documents/GitHub/PAP/Seiton/Facturass 2.zip") |> 
+archivos <- unzip("/Users/max/Documents/GitHub/PAP/Seiton/Facturass 3.zip") |> 
   as_tibble() |> 
   filter(str_detect(value, ".xlsx"),
          str_detect(value, "MACOSX", negate = TRUE)) |> 
